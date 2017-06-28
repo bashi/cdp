@@ -13,7 +13,7 @@ def _GenerateHeader(pages):
   header = '''Variables:
   devtools
   browser
-  pages
+  pages[]
 '''
   for i, page in enumerate(pages):
     header += '    %d: %s\n' % (i, page.metadata['title'])

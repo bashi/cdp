@@ -7,6 +7,24 @@
 from cdp.connection import Connection
 
 
+class _DomainAttr(object):
+  def __init__(self, target, domain):
+    for command in domain['commands']:
+      name = command['name']
+      command_name = domain['domain'] + '.' + name
+      command_attr = _CommandAttr(target, command_name)
+      setattr(self, name, command_attr)
+
+
+class _CommandAttr(object):
+  def __init__(self, target, command_name):
+    self._target = target
+    self._command_name = command_name
+  
+  def __call__(self, **kargs):
+    return self._target.Call(self._command_name, kargs)
+
+
 class TargetBase(object):
 
   def __init__(self):
@@ -19,6 +37,11 @@ class TargetBase(object):
   def EnsureConnection(self):
     if not self._conn or not self._conn.is_running:
       self._conn = Connection(self.websocket_url)
+
+  def InstallCommands(self, protocol):
+    for domain in protocol['domains']:
+      domain_attr = _DomainAttr(self, domain)
+      setattr(self, domain['domain'], domain_attr)
 
   def Call(self, method_name, params=None):
     self.EnsureConnection()

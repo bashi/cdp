@@ -14,6 +14,7 @@ class DevTools(object):
   def __init__(self, host='localhost', port='9222'):
     self._host = host
     self._port = port
+    self._cached_protocol = None
 
   @property
   def _base_url(self):
@@ -25,9 +26,11 @@ class DevTools(object):
     return res.json()
 
   def GetProtocol(self):
-    url = self._base_url + '/protocol'
-    res = requests.get(url)
-    return res.json()
+    if not self._cached_protocol:
+      url = self._base_url + '/protocol'
+      res = requests.get(url)
+      self._cached_protocol = res.json()
+    return self._cached_protocol
 
   def GetVersion(self):
     url = self._base_url + '/version'
@@ -38,7 +41,9 @@ class DevTools(object):
     url = self._base_url + '/new'
     res = requests.get(url)
     metadata = res.json()
-    return target_clients.Page(metadata)
+    page = target_clients.Page(metadata)
+    page.InstallCommands(self.GetProtocol())
+    return page
 
   def CloseTarget(self, target_id):
     url = self._base_url + '/close/' + target_id
@@ -51,11 +56,18 @@ class DevTools(object):
     return res.status_code == 200
 
   def GetBrowserClient(self):
-    return target_clients.Browser(self._host, self._port)
+    browser = target_clients.Browser(self._host, self._port)
+    browser.InstallCommands(self.GetProtocol())
+    return browser
 
   def GetPageClients(self):
+    def _CreatePageClient(target):
+      page = target_clients.Page(target)
+      page.InstallCommands(self.GetProtocol())
+      return page
+
     targets = self.GetTargets()
     return [
-        target_clients.Page(target) for target in targets
+        _CreatePageClient(target) for target in targets
         if target['type'] == 'page'
     ]

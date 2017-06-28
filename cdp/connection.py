@@ -5,6 +5,7 @@
 # pylint: disable=C0111
 
 import json
+from Queue import Empty
 from Queue import Queue
 from threading import Thread
 import websocket
@@ -20,6 +21,7 @@ class Connection(Thread):
     self._websocket.settimeout(2)
     self._current_request_id = 1
     self._requests = Queue()
+    self._events = Queue()
     self._responses = Queue()
     self._is_running = False
     self.start()
@@ -34,8 +36,12 @@ class Connection(Thread):
       req = self._requests.get()
       try:
         self._websocket.send(json.dumps(req))
-        res = self._websocket.recv()
-        self._responses.put(res)
+        raw_res = self._websocket.recv()
+        res = json.loads(raw_res)
+        if res.get('id'):
+          self._responses.put(res)
+        else:
+          self._events.put(res)
       except IOError as err:
         self._websocket.close()
         self._websocket = None
@@ -55,13 +61,16 @@ class Connection(Thread):
     self._current_request_id += 1
     self._requests.put(request)
 
-  def GetResponse(self):
-    try:
-      res = self._responses.get(timeout=2)
-    except Queue.Empty:
-      raise Exception('Response timed out')
-    return res
-
   def CallMethodSync(self, method_name, params=None):
     self.CallMethod(method_name, params)
     return self.GetResponse()
+
+  def GetResponse(self):
+    try:
+      res = self._responses.get(timeout=10)
+    except Empty:
+      raise Exception('Response timed out')
+    return res
+
+  def GetEvent(self, timeout=None):
+    return self._events.get(timeout=timeout)
