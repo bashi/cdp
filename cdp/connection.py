@@ -36,18 +36,17 @@ class Connection(Thread):
         self._websocket.send(json.dumps(req))
         res = self._websocket.recv()
         self._responses.put(res)
-      except IOError:
+      except IOError as err:
         self._websocket.close()
         self._websocket = None
         self._is_running = False
+        print('Connection closed: %s' % err.message)
         break
 
   def Stop(self):
     self._is_running = False
 
   def CallMethod(self, method_name, params=None):
-    if not self.is_running:
-      raise Exception('Invalid connection')
     request = {
         'id': self._current_request_id,
         'method': method_name,
@@ -57,8 +56,6 @@ class Connection(Thread):
     self._requests.put(request)
 
   def GetResponse(self):
-    if self._responses.qsize() == 0 and not self.is_running:
-      raise Exception('No response')
     try:
       res = self._responses.get(timeout=2)
     except Queue.Empty:
