@@ -11,46 +11,70 @@ from threading import Thread
 import websocket
 
 
-class Connection(Thread):
+class _SenderThread(Thread):
+
+  def __init__(self, conn):
+    super(_SenderThread, self).__init__()
+    self.daemon = True
+    self._conn = conn
+
+  def run(self):
+    while self._conn.is_running:
+      req = self._conn._requests.get()
+      try:
+        self._conn._websocket.send(json.dumps(req))
+      except IOError as err:
+        print('Connection error: %s' % err.message)
+        self._conn.Close()
+
+
+class _ReceiverThread(Thread):
+
+  def __init__(self, conn):
+    super(_ReceiverThread, self).__init__()
+    self.daemon = True
+    self._conn = conn
+
+  def run(self):
+    while self._conn.is_running:
+      try:
+        raw_res = self._conn._websocket.recv()
+        res = json.loads(raw_res)
+        if res.get('id'):
+          self._conn._responses.put(res)
+        else:
+          self._conn._events.put(res)
+      except IOError as err:
+        print('Connection error: %s' % err.message)
+        self._conn.Close()
+
+
+class Connection(object):
 
   def __init__(self, url):
-    super(Connection, self).__init__()
-    self.daemon = True
     self._url = url
     self._websocket = websocket.create_connection(self._url)
-    self._websocket.settimeout(2)
     self._current_request_id = 1
     self._requests = Queue()
-    self._events = Queue()
     self._responses = Queue()
-    self._is_running = False
-    self.start()
+    self._events = Queue()
+
+    self._sender = _SenderThread(self)
+    self._receiver = _ReceiverThread(self)
+
+    self._is_running = True
+    self._sender.start()
+    self._receiver.start()
 
   @property
   def is_running(self):
     return self._is_running
 
-  def run(self):
-    self._is_running = True
-    while self._is_running:
-      req = self._requests.get()
-      try:
-        self._websocket.send(json.dumps(req))
-        raw_res = self._websocket.recv()
-        res = json.loads(raw_res)
-        if res.get('id'):
-          self._responses.put(res)
-        else:
-          self._events.put(res)
-      except IOError as err:
-        self._websocket.close()
-        self._websocket = None
-        self._is_running = False
-        print('Connection closed: %s' % err.message)
-        break
-
-  def Stop(self):
-    self._is_running = False
+  def Close(self):
+    if self._is_running:
+      self._websocket.close()
+      self._websocket = None
+      self._is_running = False
 
   def CallMethod(self, method_name, params=None):
     request = {

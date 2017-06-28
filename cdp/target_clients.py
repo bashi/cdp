@@ -8,6 +8,7 @@ from cdp.connection import Connection
 
 
 class _DomainAttr(object):
+
   def __init__(self, target, domain):
     for command in domain['commands']:
       name = command['name']
@@ -17,10 +18,11 @@ class _DomainAttr(object):
 
 
 class _CommandAttr(object):
+
   def __init__(self, target, command_name):
     self._target = target
     self._command_name = command_name
-  
+
   def __call__(self, **kargs):
     return self._target.Call(self._command_name, kargs)
 
@@ -33,6 +35,10 @@ class TargetBase(object):
   @property
   def websocket_url(self):
     raise NotImplementedError()
+
+  @property
+  def connection(self):
+    return self._conn
 
   def EnsureConnection(self):
     if not self._conn or not self._conn.is_running:

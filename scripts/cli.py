@@ -4,9 +4,28 @@
 
 # pylint: disable=C0111
 
+import pprint
+import threading
+
 from IPython import embed
 from cdp import actions
 from cdp.devtools import DevTools
+
+
+def _ShowEvents(target):
+
+  def _Runner():
+    target.EnsureConnection()
+    while target.connection.is_running:
+      try:
+        event = target.connection.GetEvent()
+        pprint.pprint(event)
+      except Exception:
+        break
+
+  t = threading.Thread(target=_Runner)
+  t.daemon = True
+  t.start()
 
 
 def _GenerateHeader(pages):
@@ -22,8 +41,11 @@ def _GenerateHeader(pages):
 
 def main():
   devtools = DevTools()
-  browser = devtools.GetBrowserClient()  # pylint: disable=W0612
+  browser = devtools.GetBrowserClient()
+  _ShowEvents(browser)
   pages = devtools.GetPageClients()
+  for page in pages:
+    _ShowEvents(page)
   header = _GenerateHeader(pages)
   embed(header=header)
 
