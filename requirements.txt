@@ -1,3 +1,2 @@
-ipython
 requests
 websocket-client

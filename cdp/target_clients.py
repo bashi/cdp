@@ -54,7 +54,3 @@ class Page(TargetBase):
   @property
   def metadata(self):
     return self._metadata
-
-  def Navigate(self, url):
-    self.Call('Page.enable')
-    self.Call('Page.navigate', {'url': url})

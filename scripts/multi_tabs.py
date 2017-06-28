@@ -1,10 +1,8 @@
 import os
 import sys
+import time
 
-
-_PARENT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(_PARENT_PATH)
-
+from cdp import actions
 from cdp.devtools import DevTools
 
 
@@ -23,7 +21,8 @@ def main():
   pages = []
   for url in urls:
     page = devtools.CreateNewPage()
-    page.Navigate(url)
+    actions.Navigate(page, url)
+    time.sleep(5)
     pages.append(page)
 
 
